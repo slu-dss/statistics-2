@@ -1,0 +1,229 @@
+---
+title: "SLU DSS Spring 2020"
+subtitle: "Statistics in R: Session #2"
+author: "Cort W. Rudolph"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: ioslides_presentation
+widescreen: true
+smaller: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  tidy = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+options(scipen = 99, digits = 3)
+```
+
+# Statistics in R|Session #2: Modeling Continuous Predictors
+
+## Needed packages
+- Let's now load all the packages needed for this week. 
+- `ipak` codeblock available in the `RMarkdown` file:
+
+<!-- To install & load the required packages for this lecture, run this codeblock -->
+```{r echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+# ipak <- function(pkg){
+#     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+#     if (length(new.pkg))
+#         install.packages(new.pkg, dependencies = TRUE)
+#     sapply(pkg, require, character.only = TRUE)
+# }
+# 
+# # usage
+# packages <- c("tidyverse",
+#               "skimr",
+#               "gridExtra",
+#               "kableExtra",
+#               "psych",
+#               "broom",
+#               "magrittr",
+#               "ggeffects")
+# ipak(packages)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(skimr)
+library(psych)
+library(gridExtra)
+library(kableExtra)
+library(broom)
+library(magrittr)
+library(ggeffects)
+```
+
+## Modeling Continuous Predictors
+- Professor rating data
+- Let's load the data, `select` only a subset of the variables:
+
+```{r eval=TRUE}
+load(url("http://www.openintro.org/stat/data/evals.RData"))
+evals <- evals %>%
+  select(score, bty_avg)
+```
+
+## Modeling Continuous Predictors
+- Correlation, $r_{xy}$, between `score` and `bty_avg`
+
+```{r}
+evals %>% 
+  cor()
+```
+
+## Modeling Continuous Predictors
+- 95% confidence intervals around correlation
+
+```{r}
+evals %$%
+  cor.test(score, bty_avg) %>% 
+  broom::tidy() %>%
+  select(conf.low, estimate,conf.high) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Modeling Continuous Predictors
+
+```{r, eval = TRUE, warning=FALSE, fig.cap="Instructor Evaluation Scores at UT Austin"}
+ggplot(evals, aes(x = bty_avg, y = score)) + 
+       geom_jitter() +  
+       labs(x = "Beauty Score", y = "Teaching Score")
+```
+
+## Modeling Continuous Predictors
+- Let's improve this scatterplot by adding a "regression line." 
+- This is done by adding a new layer to the `ggplot` code that created the original figure: `+ geom_smooth(method = "lm", se = FALSE)`.
+- A regression line is a "best fitting" line in that of all possible lines you could draw on this plot; it is "best" in terms of  the "least squares" criteria.
+
+
+## Modeling Continuous Predictors
+```{r, eval=TRUE, warning=FALSE, fig.cap="Regression Line"}
+ggplot(evals, aes(x = bty_avg, y = score)) + 
+  geom_jitter() +
+  labs(x = "Beauty Score", y = "Teaching Score") + 
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+## Modeling Continuous Predictors
+- Here, the regression line is a nice visual summary of the relationship between these two numerical variables.
+- The positive slope of the blue line is consistent with our observed correlation coefficient of `r cor(evals$score, evals$bty_avg) %>% round(3)` suggesting that there is a positive relationship between `score` and `bty_avg`. 
+
+## Modeling Continuous Predictors
+- Let's build a statistical model to represent this relationship
+
+```{r}
+evals %$%
+  lm(score ~ bty_avg) %>%
+  broom::tidy(conf.int=TRUE) %>%
+  select(estimate, std.error, conf.low, conf.high) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Modeling Continuous Predictors
+- Let's estimate $R^2$ from this model
+
+```{r}
+evals %$%
+  lm(score ~ bty_avg) %>% 
+  summary() %$% 
+  r.squared %>%
+  kable() %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Modeling Continuous Predictors
+Recall that our correlation was `r cor(evals$score, evals$bty_avg) %>% round(3)`
+
+```{r}
+evals %$% 
+  cor(score, bty_avg)^2
+```
+
+## Modeling Continuous Predictors
+- Finally, plot predicted values from this model:
+```{r}
+evals %$%
+  lm(score ~ bty_avg) %>%
+  ggeffects::ggpredict() %>%
+  plot()
+```
+
+
+
+# Your Turn!
+
+## CDC Data
+The Behavioral Risk Factor Surveillance System (BRFSS) is an annual telephone survey of 350,000 people in the United States conducted by the CDC
+
+Here, we will focus on a random sample of 20,000 people from the BRFSS survey conducted in 2000. While there are over 200 variables in this data set, for now, we will work with a small subset (i.e., just respondents height & weight):
+
+First, we load the data:
+```{r}
+source("http://www.openintro.org/stat/data/cdc.R")
+```
+
+Then, select a random sample of $n = 100$ respondents height & weight
+```{r}
+set.seed(1818)
+cdc_subset<-cdc %>%
+  sample_n(100) %>%
+  select(height, weight)
+```
+
+## What is the correlation between `height` and `weight`?
+```{r}
+cdc_subset %>% 
+  cor()
+```
+
+## What is 95% confidence interval around the correlation between`height` and `weight`?
+```{r}
+cdc_subset %$%
+  cor.test(height, weight) %>% 
+  broom::tidy() %>%
+  select(conf.low, estimate,conf.high) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Create a scatterplot of the relationship between `height` and `weight`.
+```{r}
+ggplot(cdc_subset, aes(x = height, y = weight)) +
+       geom_jitter() +
+       labs(x = "Height", y = "Weight") +  
+       geom_smooth(method = "lm", se = FALSE)
+```
+
+## Regress`weight` onto `height`, and create a table of parameter estimates.
+
+```{r}
+cdc_subset %$%
+  lm(weight ~ height) %>%
+  broom::tidy(conf.int=TRUE) %>%
+  select(estimate, std.error, conf.low, conf.high) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE)
+```
+
+## What percentage of variance in `weight` can be explained by `height`?
+
+```{r}
+cdc_subset %$%
+  lm(weight ~ height) %>% 
+  summary() %$% 
+  r.squared %>%
+  kable() %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Plot the predicted relationship between `height` and `weight`
+```{r}
+cdc_subset %$% lm(weight ~ height) %>% 
+  ggeffects::ggpredict() %>%
+  plot()
+```
+
